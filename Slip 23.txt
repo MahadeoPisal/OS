@@ -1,0 +1,94 @@
+Q1.
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int main() {
+    pid_t pid = fork(); // Create a child process
+
+    if (pid < 0) {
+        // Fork failed
+        fprintf(stderr, "Fork failed\n");
+        return 1;
+    } else if (pid == 0) {
+        // Child process
+        printf("Child process created with PID: %d\n", getpid());
+        printf("Parent process ID of child: %d\n", getppid());
+        sleep(5); // Simulating some task in child process
+        printf("Child process completed\n");
+    } else {
+        // Parent process
+        printf("Parent process with PID: %d\n", getpid());
+        printf("Child process ID created: %d\n", pid);
+        printf("Parent process going to terminate\n");
+        exit(0); // Parent process terminates before the child finishes
+    }
+
+    return 0;
+}
+--------------------------------------------------------------------------------------------------
+Q2.
+#include <stdio.h>
+#include <stdbool.h>
+
+#define MAX_FRAMES 10
+#define INFINITY 9999
+
+int main() {
+    int referenceString[] = {8, 5, 7, 8, 5, 7, 2, 3, 7, 3, 5, 9, 4, 6, 2};
+    int n = sizeof(referenceString) / sizeof(referenceString[0]);
+
+    int frames[MAX_FRAMES];
+    int frameCount = 0;
+    int pageFaults = 0;
+
+    for (int i = 0; i < n; ++i) {
+        int page = referenceString[i];
+        int found = -1;
+        for (int j = 0; j < frameCount; ++j) {
+            if (frames[j] == page) {
+                found = j;
+                break;
+            }
+        }
+        if (found == -1) {
+            if (frameCount < MAX_FRAMES) {
+                frames[frameCount++] = page;
+            } else {
+                int index[MAX_FRAMES];
+                for (int j = 0; j < MAX_FRAMES; ++j) {
+                    index[j] = INFINITY;
+                    for (int k = i + 1; k < n; ++k) {
+                        if (frames[j] == referenceString[k]) {
+                            index[j] = k;
+                            break;
+                        }
+                    }
+                }
+
+                int maxIndex = 0;
+                int max = index[0];
+                for (int j = 1; j < frameCount; ++j) {
+                    if (index[j] > max) {
+                        max = index[j];
+                        maxIndex = j;
+                    }
+                }
+
+                frames[maxIndex] = page;
+            }
+            ++pageFaults;
+        }
+
+        printf("Page %d -> ", page);
+        for (int j = 0; j < frameCount; ++j) {
+            printf("%d ", frames[j]);
+        }
+        printf("\n");
+    }
+
+    printf("\nTotal Page Faults using Optimal: %d\n", pageFaults);
+
+    return 0;
+}
+

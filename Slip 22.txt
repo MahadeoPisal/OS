@@ -1,0 +1,85 @@
+Q1.
+#include <stdio.h>
+#include <unistd.h>
+
+int main() {
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        printf("Fork failed\n");
+        return 1;
+    } else if (pid == 0) {
+        printf("I am Child Process\n");
+        printf("Child PID: %d\n", getpid());
+
+        int nice_value = nice(-5); // Set a higher priority for the child process
+        if (nice_value == -1) {
+            perror("Nice error: ");
+        } else {
+            printf("Child Process Nice Value Set to %d\n", nice_value);
+        }
+    } else {
+        printf("I am Parent Process\n");
+        printf("Parent PID: %d\n", getpid());
+    }
+
+    return 0;
+}
+
+---------------------------------------------------------------------------------------------
+Q2.
+#include <stdio.h>
+
+void findWaitingTime(int n, int burst_time[], int waiting_time[]) {
+    waiting_time[0] = 0;
+    for (int i = 1; i < n; i++) {
+        int total_waiting = 0;
+        for (int j = 0; j < i; j++) {
+            total_waiting += burst_time[j];
+        }
+        waiting_time[i] = total_waiting;
+    }
+}
+
+void findTurnaroundTime(int n, int burst_time[], int waiting_time[], int turnaround_time[]) {
+    for (int i = 0; i < n; i++) {
+        turnaround_time[i] = burst_time[i] + waiting_time[i];
+    }
+}
+
+void findAverageTime(int n, int burst_time[]) {
+    int waiting_time[n], turnaround_time[n];
+    float total_waiting_time = 0, total_turnaround_time = 0;
+
+    findWaitingTime(n, burst_time, waiting_time);
+    findTurnaroundTime(n, burst_time, waiting_time, turnaround_time);
+
+    printf("Process\tBurst Time\tWaiting Time\tTurnaround Time\n");
+    for (int i = 0; i < n; i++) {
+        printf("%d\t%d\t\t%d\t\t%d\n", i + 1, burst_time[i], waiting_time[i], turnaround_time[i]);
+        total_waiting_time += waiting_time[i];
+        total_turnaround_time += turnaround_time[i];
+    }
+
+    printf("\nAverage Waiting Time = %.2f", total_waiting_time / n);
+    printf("\nAverage Turnaround Time = %.2f", total_turnaround_time / n);
+}
+
+int main() {
+    int n;
+    printf("Enter the number of processes: ");
+    scanf("%d", &n);
+
+    int burst_time[n];
+
+    printf("Enter burst time for each process:\n");
+    for (int i = 0; i < n; i++) {
+        printf("Burst time for process %d: ", i + 1);
+        scanf("%d", &burst_time[i]);
+    }
+
+    findAverageTime(n, burst_time);
+
+    return 0;
+}
+

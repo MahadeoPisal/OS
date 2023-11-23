@@ -1,0 +1,196 @@
+Q1.
+#include <stdio.h>
+#include <stdbool.h>
+
+#define MAX_FRAMES 10
+
+int reference_string[] = {3, 4, 5, 4, 3, 4, 7, 2, 4, 5, 6, 7, 2, 4, 6};
+int reference_length = sizeof(reference_string) / sizeof(reference_string[0]);
+
+struct Page {
+    int page_number;
+    int frequency;
+};
+
+struct PageTable {
+    struct Page pages[MAX_FRAMES];
+    int count;
+};
+
+void initPageTable(struct PageTable *page_table) {
+    page_table->count = 0;
+}
+
+bool isPageInTable(struct PageTable *page_table, int page_number) {
+    for (int i = 0; i < page_table->count; i++) {
+        if (page_table->pages[i].page_number == page_number) {
+            return true;
+        }
+    }
+    return false;
+}
+
+int findLFUPage(struct PageTable *page_table) {
+    int min_frequency = page_table->pages[0].frequency;
+    int min_index = 0;
+
+    for (int i = 1; i < page_table->count; i++) {
+        if (page_table->pages[i].frequency < min_frequency) {
+            min_frequency = page_table->pages[i].frequency;
+            min_index = i;
+        }
+    }
+
+    return min_index;
+}
+
+void replacePage(struct PageTable *page_table, int page_number) {
+    int index = findLFUPage(page_table);
+    page_table->pages[index].page_number = page_number;
+    page_table->pages[index].frequency = 1;
+}
+
+int main() {
+    int num_frames;
+    printf("Enter the number of frames: ");
+    scanf("%d", &num_frames);
+
+    struct PageTable page_table;
+    initPageTable(&page_table);
+
+    int page_faults = 0;
+
+    for (int i = 0; i < reference_length; i++) {
+        int page_number = reference_string[i];
+
+        if (!isPageInTable(&page_table, page_number)) {
+            if (page_table.count < num_frames) {
+                page_table.pages[page_table.count].page_number = page_number;
+                page_table.pages[page_table.count].frequency = 1;
+                page_table.count++;
+            } else {
+                replacePage(&page_table, page_number);
+            }
+
+            page_faults++;
+        } else {
+            for (int j = 0; j < page_table.count; j++) {
+               if (page_table.pages[j].page_number == page_number) {
+                    page_table.pages[j].frequency++;
+                    break;
+                }
+            }
+        }
+
+        printf("Page %d -> ", page_number);
+        for (int j = 0; j < page_table.count; j++) {
+            printf("%d(%d) ", page_table.pages[j].page_number, page_table.pages[j].frequency);
+        }
+        printf("\n");
+    }
+
+    printf("Total page faults using LFU: %d\n", page_faults);
+
+    return 0;
+}
+---------------------------------------------------------------------------------------------------------
+Q2.
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+#define MAX_INPUT_SIZE 1024
+#define MAX_TOKENS 64
+#define TOKEN_DELIMITER " \t\r\n\a"
+
+void typeline_command(char *option, int n, char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("Error: File not found\n");
+        return;
+    }
+
+    char line[MAX_INPUT_SIZE];
+    int count = 0;
+
+    if (strcmp(option, "+n") == 0) {
+        while (fgets(line, sizeof(line), file) && count < n) {
+            printf("%s", line);
+            count++;
+        }
+    } else if (strcmp(option, "-a") == 0) {
+        while (fgets(line, sizeof(line), file)) {
+            printf("%s", line);
+        }
+    } else {
+        printf("Invalid typeline command\n");
+    }
+
+    fclose(file);
+}
+
+void execute_command(char *tokens[]) {
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        printf("Fork failed\n");
+        return;
+    } else if (pid == 0) {
+        if (execvp(tokens[0], tokens) == -1) {
+            printf("Error: Command execution failed\n");
+        }
+        exit(EXIT_FAILURE);
+    } else {
+        wait(NULL);
+    }
+}
+
+int main() {
+    char input[MAX_INPUT_SIZE];
+    char *tokens[MAX_TOKENS];
+    char *token;
+
+    while (1) {
+        printf("myshell$ ");
+        fgets(input, sizeof(input), stdin);
+
+        token = strtok(input, TOKEN_DELIMITER);
+        int token_count = 0;
+
+        while (token != NULL) {
+            tokens[token_count] = token;
+            token_count++;
+
+            if (token_count >= MAX_TOKENS) {
+                printf("Too many arguments\n");
+                break;
+            }
+
+            token = strtok(NULL, TOKEN_DELIMITER);
+        }
+
+        tokens[token_count] = NULL;
+
+        if (token_count > 0) {
+            if (strcmp(tokens[0], "typeline") == 0 && token_count >= 3) {
+                char *option = tokens[1];
+                char *filename = tokens[2];
+                if (strcmp(option, "+n") == 0 && token_count >= 4) {
+                    int n = atoi(tokens[3]);
+                    typeline_command(option, n, filename);
+                } else if (strcmp(option, "-a") == 0) {
+                    typeline_command(option, 0, filename);
+                } else {
+                    printf("Invalid typeline command\n");
+                }
+            } else {
+                execute_command(tokens);
+            }
+        }
+    }
+
+    return 0;
+}
+

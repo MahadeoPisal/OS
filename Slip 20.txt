@@ -1,0 +1,157 @@
+Q1.
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+#define MAX_INPUT_SIZE 1024
+#define MAX_TOKENS 64
+#define TOKEN_DELIMITER " \t\r\n\a"
+
+void typeline_command(char *option, int n, char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("Error: File not found\n");
+        return;
+    }
+
+    char line[MAX_INPUT_SIZE];
+    int count = 0;
+
+    if (strcmp(option, "+n") == 0) {
+        while (fgets(line, sizeof(line), file) && count < n) {
+            printf("%s", line);
+            count++;
+        }
+    } else if (strcmp(option, "-a") == 0) {
+        while (fgets(line, sizeof(line), file)) {
+            printf("%s", line);
+        }
+    } else {
+        printf("Invalid typeline command\n");
+    }
+
+    fclose(file);
+}
+
+void execute_command(char *tokens[]) {
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        printf("Fork failed\n");
+        return;
+    } else if (pid == 0) {
+        if (execvp(tokens[0], tokens) == -1) {
+            printf("Error: Command execution failed\n");
+        }
+        exit(EXIT_FAILURE);
+    } else {
+        wait(NULL);
+    }
+}
+
+int main() {
+    char input[MAX_INPUT_SIZE];
+    char *tokens[MAX_TOKENS];
+    char *token;
+
+    while (1) {
+        printf("myshell$ ");
+        fgets(input, sizeof(input), stdin);
+
+        token = strtok(input, TOKEN_DELIMITER);
+        int token_count = 0;
+
+        while (token != NULL) {
+            tokens[token_count] = token;
+            token_count++;
+
+            if (token_count >= MAX_TOKENS) {
+                printf("Too many arguments\n");
+                break;
+            }
+
+            token = strtok(NULL, TOKEN_DELIMITER);
+        }
+
+        tokens[token_count] = NULL;
+
+        if (token_count > 0) {
+            if (strcmp(tokens[0], "typeline") == 0 && token_count >= 3) {
+                char *option = tokens[1];
+                char *filename = tokens[2];
+                if (strcmp(option, "+n") == 0 && token_count >= 4) {
+                    int n = atoi(tokens[3]);
+                    typeline_command(option, n, filename);
+                } else if (strcmp(option, "-a") == 0) {
+                    typeline_command(option, 0, filename);
+                } else {
+                    printf("Invalid typeline command\n");
+                }
+            } else {
+                execute_command(tokens);
+            }
+        }
+    }
+
+    return 0;
+}
+
+----------------------------------------------------------------------------------------------------
+Q2.
+#include <stdio.h>
+
+void findWaitingTime(int n, int burst_time[], int waiting_time[]) {
+    waiting_time[0] = 0;
+    for (int i = 1; i < n; i++) {
+        int total_waiting = 0;
+        for (int j = 0; j < i; j++) {
+            total_waiting += burst_time[j];
+        }
+        waiting_time[i] = total_waiting;
+    }
+}
+
+void findTurnaroundTime(int n, int burst_time[], int waiting_time[], int turnaround_time[]) {
+    for (int i = 0; i < n; i++) {
+        turnaround_time[i] = burst_time[i] + waiting_time[i];
+    }
+}
+
+void findAverageTime(int n, int burst_time[]) {
+    int waiting_time[n], turnaround_time[n];
+    float total_waiting_time = 0, total_turnaround_time = 0;
+
+    findWaitingTime(n, burst_time, waiting_time);
+    findTurnaroundTime(n, burst_time, waiting_time, turnaround_time);
+
+    printf("Process\tBurst Time\tWaiting Time\tTurnaround Time\n");
+    for (int i = 0; i < n; i++) {
+        printf("%d\t%d\t\t%d\t\t%d\n", i + 1, burst_time[i], waiting_time[i], turnaround_time[i]);
+        total_waiting_time += waiting_time[i];
+        total_turnaround_time += turnaround_time[i];
+    }
+
+    printf("\nAverage Waiting Time = %.2f", total_waiting_time / n);
+    printf("\nAverage Turnaround Time = %.2f", total_turnaround_time / n);
+}
+
+int main() {
+    int n;
+    printf("Enter the number of processes: ");
+    scanf("%d", &n);
+
+    int burst_time[n];
+
+    printf("Enter burst time for each process:\n");
+    for (int i = 0; i < n; i++) {
+        printf("Burst time for process %d: ", i + 1);
+        scanf("%d", &burst_time[i]);
+    }
+
+    findAverageTime(n, burst_time);
+
+    return 0;
+}
+

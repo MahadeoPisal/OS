@@ -1,0 +1,188 @@
+Q1.
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+void bubbleSort(int arr[], int n) {
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = 0; j < n - i - 1; j++) {
+            if (arr[j] > arr[j + 1]) {
+                int temp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
+            }
+        }
+    }
+}
+
+void insertionSort(int arr[], int n) {
+    int i, key, j;
+    for (i = 1; i < n; i++) {
+        key = arr[i];
+        j = i - 1;
+
+        while (j >= 0 && arr[j] > key) {
+            arr[j + 1] = arr[j];
+            j = j - 1;
+        }
+        arr[j + 1] = key;
+    }
+}
+
+int main() {
+    int n;
+
+    printf("Enter number of integers: ");
+    scanf("%d", &n);
+
+    int arr[n], arr_child[n];
+
+    printf("Enter %d integers:\n", n);
+    for (int i = 0; i < n; i++) {
+        scanf("%d", &arr[i]);
+        arr_child[i] = arr[i];
+    }
+
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        printf("Fork failed\n");
+        return 1;
+    } else if (pid == 0) {
+        printf("Child Process Sorting Using Insertion Sort\n");
+        insertionSort(arr_child, n);
+        printf("Sorted by Child Process: ");
+        for (int i = 0; i < n; i++) {
+            printf("%d ", arr_child[i]);
+        }
+        printf("\n");
+    } else {
+        printf("Parent Process Sorting Using Bubble Sort\n");
+        bubbleSort(arr, n);
+        printf("Sorted by Parent Process: ");
+        for (int i = 0; i < n; i++) {
+            printf("%d ", arr[i]);
+        }
+        printf("\n");
+
+        wait(NULL);
+        printf("Child Process Sorted Successfully\n");
+    }
+
+    return 0;
+}
+
+--------------------------------------------------------------------------------------
+Q2.
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <string.h>
+
+#define MAX_COMMAND_LENGTH 100
+#define MAX_TOKENS 10
+
+void countChars(char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("File not found.\n");
+        return;
+    }
+
+    int count = 0;
+    int ch;
+    while ((ch = fgetc(file)) != EOF) {
+        count++;
+    }
+
+    printf("Number of characters in %s: %d\n", filename, count);
+    fclose(file);
+}
+
+void countWords(char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("File not found.\n");
+        return;
+    }
+
+    int count = 0;
+    char word[100];
+    while (fscanf(file, "%s", word) != EOF) {
+        count++;
+    }
+
+    printf("Number of words in %s: %d\n", filename, count);
+    fclose(file);
+}
+
+void countLines(char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("File not found.\n");
+        return;
+    }
+
+    int count = 0;
+    char line[1000];
+    while (fgets(line, sizeof(line), file) != NULL) {
+        count++;
+    }
+
+    printf("Number of lines in %s: %d\n", filename, count);
+    fclose(file);
+}
+
+int main() {
+    char command[MAX_COMMAND_LENGTH];
+    char *tokens[MAX_TOKENS];
+    char *token;
+    int tokenCount;
+
+    while (1) {
+        printf("myshell$ ");
+        fgets(command, sizeof(command), stdin);
+        command[strcspn(command, "\n")] = '\0'; // Remove trailing newline
+
+        tokenCount = 0;
+        token = strtok(command, " ");
+        while (token != NULL && tokenCount < MAX_TOKENS - 1) {
+            tokens[tokenCount++] = token;
+            token = strtok(NULL, " ");
+        }
+        tokens[tokenCount] = NULL;
+
+        if (tokenCount == 3 && strcmp(tokens[0], "count") == 0) {
+            if (strcmp(tokens[1], "c") == 0) {
+                countChars(tokens[2]);
+            } else if (strcmp(tokens[1], "w") == 0) {
+                countWords(tokens[2]);
+            } else if (strcmp(tokens[1], "l") == 0) {
+                countLines(tokens[2]);
+            } else {
+                printf("Invalid count command format.\n");
+            }
+        } else {
+            pid_t pid = fork();
+            if (pid < 0) {
+                perror("Fork failed");
+                exit(EXIT_FAILURE);
+            } else if (pid == 0) {
+                // Child process
+                if (execvp(tokens[0], tokens) < 0) {
+                    perror("Command execution failed");
+                    exit(EXIT_FAILURE);
+                }
+            } else {
+                // Parent process
+                wait(NULL);
+            }
+        }
+    }
+
+    return 0;
+}
+

@@ -1,0 +1,179 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+#define MAX_INPUT_SIZE 1024
+#define MAX_TOKENS 64
+#define TOKEN_DELIMITER " \t\r\n\a"
+
+void typeline_command(char *option, int n, char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("Error: File not found\n");
+        return;
+    }
+
+    char line[MAX_INPUT_SIZE];
+    int count = 0;
+
+    if (strcmp(option, "+n") == 0) {
+        while (fgets(line, sizeof(line), file) && count < n) {
+            printf("%s", line);
+            count++;
+        }
+    } else if (strcmp(option, "-a") == 0) {
+        while (fgets(line, sizeof(line), file)) {
+            printf("%s", line);
+        }
+    } else {
+        printf("Invalid typeline command\n");
+    }
+
+    fclose(file);
+}
+
+void execute_command(char *tokens[]) {
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        printf("Fork failed\n");
+        return;
+    } else if (pid == 0) {
+        if (execvp(tokens[0], tokens) == -1) {
+            printf("Error: Command execution failed\n");
+        }
+        exit(EXIT_FAILURE);
+    } else {
+        wait(NULL);
+    }
+}
+
+int main() {
+    char input[MAX_INPUT_SIZE];
+    char *tokens[MAX_TOKENS];
+    char *token;
+
+    while (1) {
+        printf("myshell$ ");
+        fgets(input, sizeof(input), stdin);
+
+        token = strtok(input, TOKEN_DELIMITER);
+        int token_count = 0;
+
+        while (token != NULL) {
+            tokens[token_count] = token;
+            token_count++;
+
+            if (token_count >= MAX_TOKENS) {
+                printf("Too many arguments\n");
+                break;
+            }
+
+            token = strtok(NULL, TOKEN_DELIMITER);
+        }
+
+        tokens[token_count] = NULL;
+
+        if (token_count > 0) {
+            if (strcmp(tokens[0], "typeline") == 0 && token_count >= 3) {
+                char *option = tokens[1];
+                char *filename = tokens[2];
+                if (strcmp(option, "+n") == 0 && token_count >= 4) {
+                    int n = atoi(tokens[3]);
+                    typeline_command(option, n, filename);
+                } else if (strcmp(option, "-a") == 0) {
+                    typeline_command(option, 0, filename);
+                } else {
+                    printf("Invalid typeline command\n");
+                }
+            } else {
+                execute_command(tokens);
+            }
+        }
+    }
+
+    return 0;
+}
+
+-------------------------------------------------------------------------------------------------
+Q2.
+#include <stdio.h>
+
+#define MAX_PROCESSES 10
+
+void roundRobin(int n, int arrival[], int burst[], int quantum) {
+    int remaining[MAX_PROCESSES];
+    int waitingTime[MAX_PROCESSES] = {0};
+    int turnaroundTime[MAX_PROCESSES] = {0};
+
+    // Copy burst times to remaining times
+    for (int i = 0; i < n; ++i) {
+        remaining[i] = burst[i];
+    }
+
+    int currentTime = 0;
+    int completed = 0;
+
+    while (1) {
+        int done = 1;
+
+        for (int i = 0; i < n; ++i) {
+            if (remaining[i] > 0) {
+                done = 0;
+
+                if (remaining[i] > quantum) {
+                    currentTime += quantum;
+                    remaining[i] -= quantum;
+                } else {
+                    currentTime += remaining[i];
+                    waitingTime[i] = currentTime - burst[i] - arrival[i];
+                    remaining[i] = 0;
+                    turnaroundTime[i] = currentTime - arrival[i];
+                    completed++;
+                }
+            }
+        }
+
+        if (done == 1) {
+            break;
+        }
+    }
+
+    printf("Process\t Turnaround Time\t Waiting Time\n");
+    double totalTurnaround = 0, totalWaiting = 0;
+    for (int i = 0; i < n; ++i) {
+        printf("%d\t\t%d\t\t\t%d\n", i + 1, turnaroundTime[i], waitingTime[i]);
+        totalTurnaround += turnaroundTime[i];
+        totalWaiting += waitingTime[i];
+    }
+
+    printf("\nAverage Turnaround Time: %.2f\n", totalTurnaround / n);
+    printf("Average Waiting Time: %.2f\n", totalWaiting / n);
+}
+
+int main() {
+    int n, quantum;
+    printf("Enter number of processes: ");
+    scanf("%d", &n);
+
+    int arrival[MAX_PROCESSES];
+    int burst[MAX_PROCESSES];
+
+    printf("Enter arrival time and burst time for each process:\n");
+    for (int i = 0; i < n; ++i) {
+        printf("Arrival time for process %d: ", i + 1);
+        scanf("%d", &arrival[i]);
+        printf("Burst time for process %d: ", i + 1);
+        scanf("%d", &burst[i]);
+    }
+
+    printf("Enter time quantum: ");
+    scanf("%d", &quantum);
+
+    roundRobin(n, arrival, burst, quantum);
+
+    return 0;
+}
+

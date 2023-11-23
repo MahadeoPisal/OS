@@ -1,0 +1,141 @@
+Q1.
+#include <stdio.h>
+
+#define MAX_FRAMES 10
+
+int main() {
+    int referenceString[] = {3, 4, 5, 6, 3, 4, 7, 3, 4, 5, 6, 7, 2, 4, 6};
+    int n = sizeof(referenceString) / sizeof(referenceString[0]);
+
+    int frames[MAX_FRAMES];
+    int frameCount = 0;
+    int pageFaults = 0;
+
+    for (int i = 0; i < n; ++i) {
+        int page = referenceString[i];
+        int found = 0;
+
+        for (int j = 0; j < frameCount; ++j) {
+            if (frames[j] == page) {
+                found = 1;
+                break;
+            }
+        }
+
+        if (!found) {
+            if (frameCount < MAX_FRAMES) {
+                frames[frameCount++] = page;
+            } else {
+                for (int j = 0; j < frameCount - 1; ++j) {
+                    frames[j] = frames[j + 1];
+                }
+                frames[frameCount - 1] = page;
+            }
+            ++pageFaults;
+        }
+
+        printf("Page %d -> ", page);
+        for (int j = 0; j < frameCount; ++j) {
+            printf("%d ", frames[j]);
+        }
+        printf("\n");
+    }
+
+    printf("\nTotal Page Faults using FIFO: %d\n", pageFaults);
+
+    return 0;
+}
+
+-----------------------------------------------------------------------------
+Q2.
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <string.h>
+
+#define MAX_COMMAND_LENGTH 100
+#define MAX_TOKENS 10
+#define BUFFER_SIZE 256
+
+void searchOccurrences(char *filename, char *pattern, int countMode) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("File not found.\n");
+        return;
+    }
+
+    char buffer[BUFFER_SIZE];
+    int count = 0;
+
+    while (fgets(buffer, sizeof(buffer), file) != NULL) {
+        char *found = strstr(buffer, pattern);
+        while (found != NULL) {
+            if (countMode) {
+                count++;
+                found = strstr(found + 1, pattern);
+            } else {
+                printf("%s", buffer);
+                break;
+            }
+        }
+    }
+
+    fclose(file);
+
+    if (countMode) {
+        printf("Number of occurrences of '%s' in '%s': %d\n", pattern, filename, count);
+    }
+}
+
+int main() {
+    char command[MAX_COMMAND_LENGTH];
+    char *tokens[MAX_TOKENS];
+    char *token;
+    int tokenCount;
+
+    while (1) {
+        printf("myshell$ ");
+        fgets(command, sizeof(command), stdin);
+        command[strcspn(command, "\n")] = '\0'; 
+
+        tokenCount = 0;
+        token = strtok(command, " ");
+        while (token != NULL && tokenCount < MAX_TOKENS - 1) {
+            tokens[tokenCount++] = token;
+            token = strtok(NULL, " ");
+        }
+        tokens[tokenCount] = NULL;
+
+        if (tokenCount >= 4 && strcmp(tokens[0], "search") == 0) {
+            char *mode = tokens[1];
+            char *filename = tokens[2];
+            char *pattern = tokens[3];
+
+            if (strcmp(mode, "a") == 0) {
+                searchOccurrences(filename, pattern, 0);
+            } else if (strcmp(mode, "c") == 0) {
+                searchOccurrences(filename, pattern, 1);
+            } else {
+                printf("Invalid search command format.\n");
+            }
+        } else {
+            pid_t pid = fork();
+            if (pid < 0) {
+                perror("Fork failed");
+                exit(EXIT_FAILURE);
+            } else if (pid == 0) {
+                if (execvp(tokens[0], tokens) < 0) {
+                    perror("Command execution failed");
+                    exit(EXIT_FAILURE);
+                }
+            } else {
+                wait(NULL);
+            }
+        }
+    }
+
+    return 0;
+}
+
